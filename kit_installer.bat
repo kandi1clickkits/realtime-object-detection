@@ -7,7 +7,7 @@ ECHO  ==============================================================
 ECHO 	This kit installer works only on Windows OS
 ECHO 	Based on your network speed, the installation may take a while
 ECHO======================================================================================
-SET KIT_NAME=build-your-own-chatgpt
+SET KIT_NAME=realtime-object-detection
 SET WORKING_DIR=C:\kandikits\!KIT_NAME!
 REM update below path if required
 SET PY_VERSION=3.9.8
