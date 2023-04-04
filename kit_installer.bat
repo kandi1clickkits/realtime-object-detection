@@ -9,7 +9,6 @@ ECHO 	Based on your network speed, the installation may take a while
 ECHO======================================================================================
 SET KIT_NAME=realtime-object-detection
 SET WORKING_DIR=C:\kandikits\!KIT_NAME!
-REM update below path if required
 SET PY_VERSION=3.9.8
 SET MAJOR_VERSION=%PY_VERSION:~0,1%
 SET MINOR_VERSION=%PY_VERSION:~2,1%
@@ -17,6 +16,7 @@ SET PATCH_VERSION=%PY_VERSION:~4,2%
 SET PY_MM_VERSION=%MAJOR_VERSION%.%MINOR_VERSION%
 SET PY_LOCATION=C:\kandikits\python\%PY_VERSION%
 SET PY_DOWNLOAD_URL=https://www.python.org/ftp/python/%PY_VERSION%/python-%PY_VERSION%-embed-amd64.zip
+SET MS_VC_REDIST_URL=https://aka.ms/vs/17/release/vs_BuildTools.exe
 SET REPO_DOWNLOAD_URL=https://github.com/kandi1clickkits/realtime-object-detection/releases/download/v1.0.0/realtime-object-detection.zip
 SET REPO_DEPENDENCIES_URL=https://raw.githubusercontent.com/kandi1clickkits/realtime-object-detection/main/requirements.txt
 SET REPO_NAME=realtime-object-detection.zip
@@ -26,6 +26,7 @@ SET GET_PIP_LOCATION=https://bootstrap.pypa.io/get-pip.py
 SET VIRTUALENV_NAME=object-detection-env
 SET ERROR_MSG=ERROR:There was an error while installing the kit
 SET LOG_REDIRECT_LOCATION=!WORKING_DIR!\log.txt 2>&1
+
 IF EXIST "!WORKING_DIR!\log.txt" (
     DEL !WORKING_DIR!\log.txt
 )
@@ -34,7 +35,7 @@ IF EXIST !WORKING_DIR!\ (
 ) ELSE (
     mkdir !WORKING_DIR!
 )
-
+REM CD /D !WORKING_DIR!
 CD /D !WORKING_DIR!
 SET STARTTIME=%TIME%
 CALL :LOG "START TIME : %TIME%"
@@ -131,14 +132,13 @@ IF ERRORLEVEL 1 (
 )
 EXIT /B 0
 
-
 :Download_repo
 IF EXIST !WORKING_DIR!\%EXTRACTED_REPO_DIR%\ (
     CALL :LOG "%REPO_NAME% already available in location"
 	 timeout 1  >nul
 	 for /f %%A in ('copy /Z "%~dpf0" nul') do set "CR=%%A"
 	 <nul set/p"=->!CR!"
-	 ECHO 4. Repo already available in the location !WORKING_DIR!.
+	 ECHO 4. Repo already available in the location !WORKING_DIR!. Please delete the repo and re run the script to download latest code.
 	 TITLE Installing %KIT_NAME% kit 100%% xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ) ELSE (
@@ -152,7 +152,6 @@ IF EXIST !WORKING_DIR!\%EXTRACTED_REPO_DIR%\ (
     	CALL :LOG "Extracting the repo ..."
     	tar -xvf %REPO_NAME% >> !WORKING_DIR!\log.txt 2>&1
     	TITLE Installing %KIT_NAME% kit 90%% xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx__________
-	CALL :Download_image
     	TITLE Installing %KIT_NAME% kit 100%% xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     	timeout 1  >nul
 	for /f %%A in ('copy /Z "%~dpf0" nul') do set "CR=%%A"
@@ -163,12 +162,16 @@ EXIT /B 0
 
 :Install_python_and_modules
 CALL :LOG "Downloading python %PY_VERSION% ... "
+REM curl -o python-%PY_VERSION%-amd64.exe %PY_DOWNLOAD_URL%
+REM bitsadmin /transfer python_download_job /download %PY_DOWNLOAD_URL% "%cd%\python-%PY_VERSION%-amd64.exe"
 MKDIR "!WORKING_DIR!\%PY_VERSION%" >> !WORKING_DIR!\log.txt 2>&1
+REM bitsadmin /transfer python_download_job /download %PY_DOWNLOAD_URL% "!WORKING_DIR!\%PY_VERSION%\python-%PY_VERSION%-embed-amd64.zip"
 curl --output "!WORKING_DIR!\%PY_VERSION%\python-%PY_VERSION%-embed-amd64.zip" %PY_DOWNLOAD_URL% >> !WORKING_DIR!\log.txt 2>&1
 IF ERRORLEVEL 1 (
     EXIT /B 1
 )
 CALL :LOG "Installing python %PY_VERSION% ..."
+REM python-%PY_VERSION%-amd64.exe /quiet InstallAllUsers=0 PrependPath=0 Include_test=0 TargetDir=%PY_LOCATION%
 CD "!WORKING_DIR!\%PY_VERSION%"
 tar -xvf "python-%PY_VERSION%-embed-amd64.zip" >> !WORKING_DIR!\log.txt 2>&1
 IF ERRORLEVEL 1 (
@@ -177,7 +180,9 @@ IF ERRORLEVEL 1 (
 )
 DEL "python-%PY_VERSION%-embed-amd64.zip" >> !WORKING_DIR!\log.txt 2>&1
 CD "%cd%\.."
-
+REM SET MAJOR_VERSION=%PY_VERSION:~0,1%
+REM SET MINOR_VERSION=%PY_VERSION:~2,1%
+REM SET PATCH_VERSION=%PY_VERSION:~4,2%
 MOVE "!WORKING_DIR!\%PY_VERSION%\python%MAJOR_VERSION%%MINOR_VERSION%._pth" "!WORKING_DIR!\%PY_VERSION%\python%MAJOR_VERSION%%MINOR_VERSION%.pth" >> !WORKING_DIR!\log.txt 2>&1
 mkdir "!WORKING_DIR!\%PY_VERSION%\DLLs" >> !WORKING_DIR!\log.txt 2>&1
 mkdir "%PY_LOCATION%" >> !WORKING_DIR!\log.txt 2>&1
@@ -210,12 +215,39 @@ IF ERRORLEVEL 1 (
 	)	
 )
 
+:Install_ms_vc_redist
+IF EXIST "!WORKING_DIR!\vs_BuildTools.exe" (
+    CALL :LOG "Microsoft Visual C++ Redistributable already downloaded"
+) ELSE (
+    CALL :LOG "Downloading Microsoft Visual C++ Redistributable ..." 
+    bitsadmin /transfer vc_redist_download_job /download /priority foreground %MS_VC_REDIST_URL% "!WORKING_DIR!\vs_BuildTools.exe" >> !WORKING_DIR!\log.txt 2>&1
+)
+REM curl -o vs_BuildTools.exe %MS_VC_REDIST_URL%
+REM bitsadmin /transfer vc_redist_download_job /download %MS_VC_REDIST_URL% "%cd%\vs_BuildTools.exe"
+CALL :LOG "Installing Microsoft Visual C++ Redistributable ..."
+!WORKING_DIR!\vs_buildtools.exe --quiet --norestart --add Microsoft.VisualStudio.Component.VC.CoreBuildTools --add Microsoft.VisualStudio.Component.VC.CoreIde --add Microsoft.VisualStudio.Component.VC.Redist.14.Latest --add Microsoft.VisualStudio.Component.VC.CMake.Project --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.TestTools.BuildTools --add Microsoft.VisualStudio.Component.Windows10SDK.19041
+IF ERRORLEVEL 1 (
+		SET ERROR_MSG=ERROR: There was an error while installing Microsoft Visual C++ Redistributable
+		CALL :Show_Error_And_Exit
+		EXIT /B 1
+) ELSE (
+	CALL :LOG "Microsoft Visual C++ Redistributable has been installed"
+	TITLE Installing %KIT_NAME% kit 10%% xxxxxxxxxx__________________________________________________________________________________________
+	timeout 1  >nul
+	for /f %%A in ('copy /Z "%~dpf0" nul') do set "CR=%%A"
+	<nul set/p"=->!CR!"
+	ECHO 1. Microsoft Visual C++ Redistributable installed
+)
+EXIT /B 0
+
+
 :Install_dependencies
 CALL :LOG "Installing dependent modules ..."
 bitsadmin /transfer dependency_download_job /download /priority foreground %REPO_DEPENDENCIES_URL% "!WORKING_DIR!\requirements.txt" >> !WORKING_DIR!\log.txt 2>&1
 CALL :LOG "!PATH!"
 python -m pip install virtualenv >> !WORKING_DIR!\log.txt 2>&1
 python -m virtualenv %VIRTUALENV_NAME%>> !WORKING_DIR!\log.txt 2>&1
+REM python -m venv kkit
 pushd .
 cd .\%VIRTUALENV_NAME%\Scripts
 CALL :LOG "%cd%"
@@ -285,4 +317,3 @@ for /l %%i in () do for %%j in ("\ | / -" "| / - \" "/ - \ |" "- \ | /") do for 
   >nul ping -n 1 localhost
   if not exist "%temp%\spinner.~tmp" exit
 )
-
